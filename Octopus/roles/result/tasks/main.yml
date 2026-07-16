@@ -1,0 +1,60 @@
+---
+- name: Ensure /opt/result exists
+  file:
+    path: /opt/result
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Unarchive result service to /opt/result
+  unarchive:
+    src: "{{ playbook_dir }}/result.tar"
+    dest: /opt/result
+    remote_src: no
+    creates: /opt/result/result/server.js
+  become: true
+
+- name: Install Node.js and npm
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install result dependencies
+  community.general.npm:
+    path: /opt/result/result
+    state: present
+  become: true
+
+- name: Create result environment file
+  copy:
+    dest: /etc/default/.env.result
+    content: |
+      POSTGRES_HOST=192.168.122.81
+      POSTGRES_PORT=5432
+      POSTGRES_DB=paul
+      POSTGRES_USER=paul
+      POSTGRES_PASSWORD={{ vault_postgresql_paul_password }}
+    mode: "0600"
+  become: true
+  no_log: true
+
+- name: Copy systemd service file for result
+  copy:
+    src: result.service
+    dest: /etc/systemd/system/result.service
+    mode: "0644"
+  become: true
+
+- name: Reload systemd and start result service
+  systemd:
+    name: result.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: true

@@ -1,0 +1,23 @@
+---
+- name: Install Redis Server
+  apt:
+    name: redis-server
+    state: present
+    update_cache: yes
+
+- name: Deploy Redis configuration
+  copy:
+    src: redis.conf
+    dest: /etc/redis/redis.conf
+    mode: "0644"
+    backup: yes
+  become: true
+  notify: Restart Redis
+
+- name: Ensure Redis is running and enabled
+  systemd:
+    name: redis-server
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true

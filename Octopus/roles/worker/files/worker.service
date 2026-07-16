@@ -1,0 +1,15 @@
+[Unit]
+Description=Worker Service
+After=network.target redis-server.service postgresql.service
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/default/.env.worker
+WorkingDirectory=/opt/worker/worker
+ExecStart=/usr/bin/java -jar /opt/worker/worker/target/worker-jar-with-dependencies.jar
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

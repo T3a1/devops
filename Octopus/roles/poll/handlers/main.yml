@@ -1,0 +1,8 @@
+---
+- name: Restart poll
+  systemd:
+    name: poll.service
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+  become: true

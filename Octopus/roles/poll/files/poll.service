@@ -1,0 +1,15 @@
+[Unit]
+Description=Poll Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/default/.env.poll
+WorkingDirectory=/opt/poll/poll
+ExecStart=/opt/poll/venv/bin/python /opt/poll/poll/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

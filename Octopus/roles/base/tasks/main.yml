@@ -1,0 +1,16 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install essential packages
+  apt:
+    name:
+      - tar
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - python3-debian
+      - acl
+    state: present

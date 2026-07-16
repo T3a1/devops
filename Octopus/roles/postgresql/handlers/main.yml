@@ -1,0 +1,14 @@
+---
+- name: Restart PostgreSQL
+  systemd:
+    name: postgresql
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+  become: true
+
+- name: Apply DB schema
+  community.postgresql.postgresql_script:
+    login_db: paul
+    path: /tmp/schema.sql
+  become_user: postgres

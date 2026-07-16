@@ -1,0 +1,64 @@
+---
+- name: Ensure /opt/worker exists
+  file:
+    path: /opt/worker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Unarchive worker service to /opt/worker
+  unarchive:
+    src: "{{ playbook_dir }}/worker.tar"
+    dest: /opt/worker
+    remote_src: no
+    creates: /opt/worker/worker/pom.xml
+  become: true
+
+- name: Install Java and Maven
+  apt:
+    name:
+      - openjdk-21-jdk
+      - maven
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Build worker
+  command: mvn -q -DskipTests package
+  args:
+    chdir: /opt/worker/worker
+    creates: /opt/worker/worker/target/worker-jar-with-dependencies.jar
+  become: true
+
+- name: Create worker environment file
+  copy:
+    dest: /etc/default/.env.worker
+    content: |
+      REDIS_HOST=192.168.122.90
+      POSTGRES_HOST=192.168.122.81
+      POSTGRES_PORT=5432
+      POSTGRES_DB=paul
+      POSTGRES_USER=paul
+      POSTGRES_PASSWORD={{ vault_postgresql_paul_password }}
+    mode: "0600"
+  become: true
+  no_log: true
+  notify: Restart worker
+
+- name: Copy systemd service file for worker
+  copy:
+    src: worker.service
+    dest: /etc/systemd/system/worker.service
+    mode: "0644"
+  become: true
+  notify: Restart worker
+
+- name: Ensure worker service is enabled and started
+  systemd:
+    name: worker.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: true

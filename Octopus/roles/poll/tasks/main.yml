@@ -1,0 +1,59 @@
+---
+- name: Ensure /opt/poll exists
+  file:
+    path: /opt/poll
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Unarchive poll service to /opt/poll
+  unarchive:
+    src: "{{ playbook_dir }}/poll.tar"
+    dest: /opt/poll
+    remote_src: no
+    creates: /opt/poll/poll/app.py
+  become: true
+
+- name: Install Python and build dependencies
+  apt:
+    name:
+      - python3-venv
+      - python3-pip
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install Python requirements into virtualenv
+  pip:
+    requirements: /opt/poll/poll/requirements.txt
+    virtualenv: /opt/poll/venv
+    virtualenv_command: /usr/bin/python3 -m venv
+  become: true
+  notify: Restart poll
+
+- name: Create poll environment file
+  copy:
+    dest: /etc/default/.env.poll
+    content: |
+      REDIS_HOST=192.168.122.90
+    mode: "0600"
+  become: true
+  notify: Restart poll
+
+- name: Copy systemd service file for poll from role files
+  copy:
+    dest: /etc/systemd/system/poll.service
+    src: poll.service
+    mode: "0644"
+  become: true
+  notify: Restart poll
+
+- name: Ensure poll service is enabled and started
+  systemd:
+    name: poll.service
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true

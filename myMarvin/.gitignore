@@ -1,0 +1,5 @@
+*.sublime*
+Dockerfile
+docker-compose.yml
+plugins.txt
+todo.txt

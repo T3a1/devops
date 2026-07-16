@@ -1,0 +1,104 @@
+---
+- name: Download PostgreSQL APT repository GPG key
+  get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /usr/share/keyrings/apt.postgresql.org.gpg
+    mode: "0644"
+  become: true
+
+- name: Add PostgreSQL APT repository (PGDG) using deb822
+  deb822_repository:
+    name: pgdg
+    types:
+      - deb
+      - deb-src
+    uris:
+      - http://apt.postgresql.org/pub/repos/apt
+    suites:
+      - "{{ ansible_facts['distribution_release'] }}-pgdg"
+    components:
+      - main
+    signed_by: /usr/share/keyrings/apt.postgresql.org.gpg
+    install_python_debian: yes
+  become: true
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install PostgreSQL 16
+  apt:
+    name:
+      - postgresql-16
+      - postgresql-contrib-16
+      - python3-debian
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Allow PostgreSQL to listen on all interfaces
+  lineinfile:
+    path: /etc/postgresql/16/main/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '*'"
+    backup: yes
+  become: true
+  notify: Restart PostgreSQL
+
+- name: Deploy PostgreSQL client authentication rules
+  copy:
+    src: pg_hba.conf
+    dest: /etc/postgresql/16/main/pg_hba.conf
+    mode: "0644"
+    backup: yes
+  become: true
+  notify: Restart PostgreSQL
+
+- name: Ensure PostgreSQL is running and enabled
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true
+
+- name: Create paul database user with limited permissions
+  postgresql_user:
+    name: paul
+    password: "{{ vault_postgresql_paul_password }}"
+    encrypted: yes
+    state: present
+  become_user: postgres
+  no_log: true
+
+- name: Create paul database
+  postgresql_db:
+    name: paul
+    owner: paul
+    state: present
+  become_user: postgres
+
+- name: Deploy database schema file
+  copy:
+    src: schema.sql
+    dest: /tmp/schema.sql
+    mode: "0644"
+  become: true
+
+- name: Apply DB schema
+  command: psql -U postgres -d paul -f /tmp/schema.sql
+  become_user: postgres
+
+- name: Grant paul access to votes table
+  community.postgresql.postgresql_privs:
+    login_db: paul
+    type: table
+    schema: public
+    objs: votes
+    roles: paul
+    privs: SELECT,INSERT,UPDATE
+    state: present
+  become_user: postgres
+  vars:
+    ansible_python_interpreter: /usr/bin/python3

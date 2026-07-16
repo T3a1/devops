@@ -1,0 +1,15 @@
+[Unit]
+Description=Result Web Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/default/.env.result
+WorkingDirectory=/opt/result/result
+ExecStart=/usr/bin/node /opt/result/result/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
