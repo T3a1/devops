@@ -1,0 +1,30 @@
+# Point d'entrée Kustomize : liste des manifestes de l'application.
+#   kubectl apply -k k8s/base   -> applique tout, avec les images par défaut (poll:1.0, ...)
+# Les scripts de déploiement génèrent k8s/.generated/kustomization.yaml qui réutilise
+# ce dossier (../base) et remplace seulement le nom complet et le tag des images.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: poll
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: poll-application
+    includeSelectors: false
+
+resources:
+  - 00-namespace.yaml
+  - 01-config.yaml
+  - 10-redis.yaml
+  - 20-postgres.yaml
+  - 30-worker.yaml
+  - 40-poll.yaml
+  - 50-result.yaml
+
+images:
+  - name: poll
+    newTag: "1.0"
+  - name: worker
+    newTag: "1.0"
+  - name: result
+    newTag: "1.0"

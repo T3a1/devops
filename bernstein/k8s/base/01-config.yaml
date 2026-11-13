@@ -1,0 +1,13 @@
+# Configuration NON sensible, partagée par les composants.
+# Les mots de passe sont dans le Secret "poll-secrets", créé par scripts/deploy.sh
+# à partir du fichier .env (jamais versionné).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: poll-config
+data:
+  REDIS_HOST: redis          # nom du Service Redis (DNS interne)
+  POSTGRES_HOST: db          # nom du Service PostgreSQL (DNS interne)
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: poll
+  POSTGRES_USER: poll

@@ -1,0 +1,8 @@
+# Namespace : l'espace qui regroupe toutes les ressources de l'application Poll.
+# Supprimer ce namespace supprime tout ce qu'il contient (kubectl delete namespace poll).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: poll
+  labels:
+    app.kubernetes.io/part-of: poll-application

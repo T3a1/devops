@@ -1,0 +1,109 @@
+# Result : la page des résultats (publique), mise à jour en direct par socket.io.
+# Le navigateur utilise le transport "long-polling" de socket.io (voir views/app.js) :
+# toutes les requêtes d'un même navigateur doivent arriver sur LE MÊME pod.
+# D'où sessionAffinity: ClientIP (+ externalTrafficPolicy: Local pour voir la vraie IP client).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: result
+  labels:
+    app.kubernetes.io/name: result
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: result
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: result
+        app.kubernetes.io/component: frontend
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: result
+      containers:
+        - name: result
+          image: result
+          env:
+            - name: POSTGRES_HOST
+              valueFrom: { configMapKeyRef: { name: poll-config, key: POSTGRES_HOST } }
+            - name: POSTGRES_PORT
+              valueFrom: { configMapKeyRef: { name: poll-config, key: POSTGRES_PORT } }
+            - name: POSTGRES_DB
+              valueFrom: { configMapKeyRef: { name: poll-config, key: POSTGRES_DB } }
+            - name: POSTGRES_USER
+              valueFrom: { configMapKeyRef: { name: poll-config, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: poll-secrets, key: POSTGRES_PASSWORD } }
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }   # PostgreSQL joignable
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 15    # couvre aussi le délai de la sonde du load balancer Azure
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: result
+  labels:
+    app.kubernetes.io/name: result
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local   # conserve l'IP du client et n'envoie qu'aux nœuds ayant un pod prêt
+  sessionAffinity: ClientIP      # un même client reste sur le même pod (socket.io long-polling)
+  selector:
+    app.kubernetes.io/name: result
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: result
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: result
