@@ -1,0 +1,5 @@
+configuration-as-code:latest
+job-dsl:latest
+role-strategy:latest
+github:latest
+ws-cleanup:latest
